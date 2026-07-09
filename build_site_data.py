@@ -94,9 +94,23 @@ def main():
             "passRate": round(100 * passed / graded) if graded else None,
         })
 
+    # ---- credits (optional) ----
+    credits = {}
+    try:
+        credits = json.load(open("credits.json"))
+    except FileNotFoundError:
+        pass
+
     # ---- merge + course-level summary ----
     out = []
     for code, c in courses.items():
+        # drop IDC design studio courses that have no timetable slot
+        if c["deptPrefix"] == "ID,DE,DEP" and not any(o["cells"] for o in c["offerings"]):
+            continue
+        cr = credits.get(code)
+        c["credits"] = cr["credits"] if cr else None
+        c["ltps"] = [cr["L"], cr["T"], cr["P"], cr["S"]] if cr else None
+        c["half"] = bool(cr["half"]) if cr else False
         g = grades.get(code, [])
         c["grades"] = g
         wpts = wn = 0

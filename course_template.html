@@ -401,6 +401,8 @@
     return html;
   }
   function aggDist(c){const d={};for(const r of c.grades)for(const k in r.dist)d[k]=(d[k]||0)+r.dist[k];return d;}
+  const crFmt=v=>v==null?'':(Number.isInteger(v)?String(v):v.toFixed(1));
+  const ltpsFmt=a=>a?a.map(x=>x==null?'0':crFmt(x)).join('–'):'';
 
   // ---- timetable state ----
   const byCode=new Map(courses.map(c=>[c.code,c]));
@@ -471,7 +473,7 @@
     return `<article class="card${on?' sel':''}" data-i="${i}" tabindex="0" role="button">
       <div class="ctop">
         <span class="code">${esc(c.code)}</span>
-        <div class="tags">${c.level?`<span class="tag mono">${c.level}</span>`:''}<span class="tag">${esc(c.type||'—')}</span></div>
+        <div class="tags">${c.credits!=null?`<span class="tag mono">${crFmt(c.credits)} cr</span>`:''}<span class="tag">${esc(c.type||'—')}</span></div>
         ${gp}
       </div>
       <h3 class="cname">${esc(c.name)}</h3>
@@ -549,6 +551,7 @@
         <div class="dtags"><span class="tag">${esc(c.dept)}</span>${tags}</div></div>
       <div class="dbody">
         <div class="sec"><h4>Overview</h4><dl class="kv">
+          ${c.credits!=null?`<dt>Credits</dt><dd class="num">${crFmt(c.credits)}${c.ltps?` &nbsp;·&nbsp; L–T–P–S ${ltpsFmt(c.ltps)}`:''}${c.half?' &nbsp;·&nbsp; half-sem':''}</dd>`:''}
           <dt>Instructors</dt><dd>${c.instructors.length?esc(c.instructors.join(', ')):'—'}</dd>
           <dt>Offerings</dt><dd>${c.offerings.length} section${c.offerings.length>1?'s':''} this semester</dd>
           ${c.avgGP!=null?`<dt>Avg grade point</dt><dd class="num" style="color:${gpColor(c.avgGP)};font-weight:600">${c.avgGP.toFixed(2)} · ${c.gradedN} graded</dd>`:''}
