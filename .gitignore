@@ -3,3 +3,4 @@ grade_cache/
 *_cache/
 *.pyc
 __pycache__/
+histinstr_cache/

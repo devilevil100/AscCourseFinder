@@ -177,8 +177,10 @@
   .oadd:hover{border-color:var(--accent);color:var(--accent-ink)}
   .oadd.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
   .oadd:disabled{opacity:.55;cursor:default}
-  .gyear{margin-bottom:16px}
-  .gyear .gy{font-family:var(--mono);font-size:12px;color:var(--faint);margin-bottom:7px;letter-spacing:.04em}
+  .gyear{margin-bottom:24px}
+  .gyear .gy{font-family:var(--mono);font-size:13px;color:var(--accent-ink);font-weight:650;margin-bottom:10px;letter-spacing:.02em}
+  .gsub{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);font-weight:700;margin:12px 0 8px}
+  .ginstr{font-size:11.5px;color:var(--muted);margin-top:3px}
   .grow{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:11px;margin-bottom:9px}
   .grow .gsec{font-family:var(--mono);font-size:12.5px;color:var(--muted);font-weight:650}
   .grow .gbarwrap{display:flex;flex-direction:column;gap:3px;min-width:0}
@@ -513,37 +515,34 @@
       <div class="oh"><span class="otype">${esc(o.row)}</span>${o.div?`<span class="odiv">${esc(o.div)}</span>`:''}${o.cells.length?`<span class="odiv">slot ${offGroups(o).join(' ')}</span>`:''}${o.biometric?`<span class="bio">biometric</span>`:''}<span class="olim">cap ${esc(o.limit||'0')}</span></div>
       <div class="oinstr">${instr}</div>${o.slot?`<div class="oslot">${esc(o.slot)}</div>`:''}${btn}</div>`;
   }
-  function gradeRowHTML(r){
+  function gradeRowHTML(r,instr){
     let tot=0;for(const k in r.dist)tot+=r.dist[k];
     const pairs=[...GRADE_ORDER,...NEUTRAL_G].filter(g=>r.dist[g]).map(g=>`${g} ${r.dist[g]}`);
     const avg=r.avg!=null?`<span class="gavg num" style="color:${gpColor(r.avg)};background:color-mix(in srgb,${gpColor(r.avg)} 16%,transparent)">${r.avg.toFixed(2)}</span>`
       :`<span class="gavg num" style="color:var(--faint);background:var(--surface-2)">—</span>`;
-    return `<div class="grow"><span class="gsec">${esc(r.sec)}</span><div class="gbarwrap"><div class="gbar">${barSegments(r.dist)}</div><div class="gmeta"><span>${tot} graded</span><span>${esc(pairs.join('  '))}</span></div></div><div class="gright">${avg}${r.passRate!=null?`<span class="gpass">${r.passRate}% pass</span>`:''}</div></div>`;
+    return `<div class="grow"><span class="gsec">${esc(r.sec)}</span><div class="gbarwrap"><div class="gbar">${barSegments(r.dist)}</div><div class="gmeta"><span>${tot} graded</span><span>${esc(pairs.join('  '))}</span></div>${instr?`<div class="ginstr">👤 ${esc(instr)}</div>`:''}</div><div class="gright">${avg}${r.passRate!=null?`<span class="gpass">${r.passRate}% pass</span>`:''}</div></div>`;
   }
-  function breakdownHTML(c){
-    const d=aggDist(c); let tot=0; for(const k in d) tot+=d[k];
-    if(!tot) return '';
+  function breakdownInner(d){
+    let tot=0; for(const k in d) tot+=d[k]; if(!tot) return '';
     const ord=[...GRADE_ORDER,...NEUTRAL_G].filter(g=>d[g]);
     const maxFrac=Math.max(...ord.map(g=>d[g]/tot));
     const col=g=>GRADE_ORDER.includes(g)?gcolor(g):NEUTRAL;
-    const chart=ord.map(g=>{
-      const frac=d[g]/tot;
-      return `<div class="gcol" title="${gname[g]||g}: ${d[g]} (${(frac*100).toFixed(1)}%)">
-        <span class="gpct">${(frac*100).toFixed(0)}%</span>
-        <div class="gbarv" style="height:${Math.max(4,frac/maxFrac*100).toFixed(1)}%;background:${col(g)}"></div>
-        <span class="glab">${g}</span></div>`;
-    }).join('');
+    const chart=ord.map(g=>{const frac=d[g]/tot;
+      return `<div class="gcol" title="${gname[g]||g}: ${d[g]} (${(frac*100).toFixed(1)}%)"><span class="gpct">${(frac*100).toFixed(0)}%</span><div class="gbarv" style="height:${Math.max(4,frac/maxFrac*100).toFixed(1)}%;background:${col(g)}"></div><span class="glab">${g}</span></div>`;}).join('');
     const rows=ord.map(g=>`<tr><td><span class="gsw" style="background:${col(g)}"></span>${gname[g]||g}</td><td class="num">${d[g]}</td><td class="num">${(d[g]/tot*100).toFixed(1)}%</td></tr>`).join('');
-    return `<div class="sec"><h4>Grade breakdown · ${tot} students${c.avgGP!=null?` · avg ${c.avgGP.toFixed(2)}`:''}</h4>
-      <div class="chart">${chart}</div>
-      <table class="btable"><thead><tr><th>Grade</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
-      <tbody>${rows}</tbody><tfoot><tr><td>Total</td><td class="num">${tot}</td><td class="num">100%</td></tr></tfoot></table></div>`;
+    return `<div class="chart">${chart}</div><table class="btable"><thead><tr><th>Grade</th><th class="num">Count</th><th class="num">Share</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td>Total</td><td class="num">${tot}</td><td class="num">100%</td></tr></tfoot></table>`;
   }
   function openDrawer(c){
     drawerCourse=c;
     const tags=[c.type,c.category&&c.category.replace(/\.$/,''),c.level?c.level+'-level':''].filter(Boolean).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
     const byYear={};c.grades.forEach(r=>{(byYear[r.year]=byYear[r.year]||[]).push(r);});
-    const ghtml=c.grades.length?Object.keys(byYear).sort().reverse().map(y=>`<div class="gyear"><div class="gy">${y} · Semester 1</div>${byYear[y].sort((a,b)=>a.sec.localeCompare(b.sec)).map(gradeRowHTML).join('')}</div>`).join('')
+    const ghtml=c.grades.length?Object.keys(byYear).sort().reverse().map(y=>{
+      const rows=byYear[y].slice().sort((a,b)=>a.sec.localeCompare(b.sec,undefined,{numeric:true}));
+      const d={};rows.forEach(r=>{for(const k in r.dist)d[k]=(d[k]||0)+r.dist[k];});
+      let tot=0;for(const k in d)tot+=d[k];
+      const hi=(c.histInstr&&c.histInstr[y])||{};
+      return `<div class="gyear"><div class="gy">${y} · Semester 1 · ${tot} graded</div>${breakdownInner(d)}<div class="gsub">By section</div>${rows.map(r=>gradeRowHTML(r,hi[r.sec])).join('')}</div>`;
+    }).join('')
       :`<div class="nohist">No 2024–2025 Sem 1 grade history — likely a new or first-time course.</div>`;
     drawer.innerHTML=`
       <div class="dhead"><button class="dclose" id="dclose" aria-label="Close">✕</button>
@@ -557,8 +556,7 @@
           ${c.avgGP!=null?`<dt>Avg grade point</dt><dd class="num" style="color:${gpColor(c.avgGP)};font-weight:600">${c.avgGP.toFixed(2)} · ${c.gradedN} graded</dd>`:''}
         </dl></div>
         <div class="sec"><h4>Sections · Autumn 2026</h4>${c.offerings.map((o,oi)=>offHTML(o,oi)).join('')}</div>
-        ${c.grades.length?breakdownHTML(c):''}
-        <div class="sec"><h4>Grade history by section</h4>${ghtml}</div>
+        <div class="sec"><h4>Grades &amp; instructors by year</h4>${ghtml}</div>
       </div>`;
     $('dclose').onclick=closeDrawer;
     scrim.classList.add('on');drawer.classList.add('on');drawer.setAttribute('aria-hidden','false');

@@ -94,10 +94,15 @@ def main():
             "passRate": round(100 * passed / graded) if graded else None,
         })
 
-    # ---- credits (optional) ----
+    # ---- credits + historical section instructors (optional) ----
     credits = {}
     try:
         credits = json.load(open("credits.json"))
+    except FileNotFoundError:
+        pass
+    hist_instr = {}
+    try:
+        hist_instr = json.load(open("hist_instructors.json"))
     except FileNotFoundError:
         pass
 
@@ -111,6 +116,7 @@ def main():
         c["credits"] = cr["credits"] if cr else None
         c["ltps"] = [cr["L"], cr["T"], cr["P"], cr["S"]] if cr else None
         c["half"] = bool(cr["half"]) if cr else False
+        c["histInstr"] = hist_instr.get(code, {})
         g = grades.get(code, [])
         c["grades"] = g
         wpts = wn = 0
