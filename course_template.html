@@ -305,8 +305,8 @@
       <div class="field"><label for="type">Course type</label><select id="type"><option value="">All types</option></select></div>
       <div class="field"><label for="sort">Sort by</label><select id="sort">
         <option value="code">Course code</option>
-        <option value="lenient">Most lenient (avg grade)</option>
-        <option value="harsh">Toughest (avg grade)</option>
+        <option value="lenient">Most lenient (median grade)</option>
+        <option value="harsh">Toughest (median grade)</option>
         <option value="graded">Most students graded</option>
         <option value="name">Title A–Z</option>
       </select></div>
@@ -458,16 +458,16 @@
   const cmp={
     code:(a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}),
     name:(a,b)=>a.name.localeCompare(b.name),
-    lenient:(a,b)=>(b.avgGP??-1)-(a.avgGP??-1),
-    harsh:(a,b)=>(a.avgGP??99)-(b.avgGP??99),
+    lenient:(a,b)=>(b.medGP??-1)-(a.medGP??-1),
+    harsh:(a,b)=>(a.medGP??99)-(b.medGP??99),
     graded:(a,b)=>b.gradedN-a.gradedN,
   };
 
   const grid=$('grid'),empty=$('empty');
   let view=[];
   function cardHTML(c,i){
-    const gp=c.avgGP!=null
-      ?`<span class="gp num" style="color:${gpColor(c.avgGP)};background:color-mix(in srgb,${gpColor(c.avgGP)} 15%,transparent)" title="Average grade point over ${c.gradedN} graded students">${c.avgGP.toFixed(2)}</span>`
+    const gp=c.medGP!=null
+      ?`<span class="gp num" style="color:${gpColor(c.medGP)};background:color-mix(in srgb,${gpColor(c.medGP)} 15%,transparent)" title="Median grade point over ${c.gradedN} graded students">${crFmt(c.medGP)}</span>`
       :`<span class="gp none">no grades</span>`;
     const instr=c.instructors.length?esc(c.instructors.slice(0,2).join(', '))+(c.instructors.length>2?` +${c.instructors.length-2}`:''):'—';
     const bar=c.grades.length?`<div class="bar">${barSegments(aggDist(c))}</div>`:'';
@@ -518,7 +518,7 @@
   function gradeRowHTML(r,instr){
     let tot=0;for(const k in r.dist)tot+=r.dist[k];
     const pairs=[...GRADE_ORDER,...NEUTRAL_G].filter(g=>r.dist[g]).map(g=>`${g} ${r.dist[g]}`);
-    const avg=r.avg!=null?`<span class="gavg num" style="color:${gpColor(r.avg)};background:color-mix(in srgb,${gpColor(r.avg)} 16%,transparent)">${r.avg.toFixed(2)}</span>`
+    const avg=r.median!=null?`<span class="gavg num" style="color:${gpColor(r.median)};background:color-mix(in srgb,${gpColor(r.median)} 16%,transparent)" title="Median grade point">${crFmt(r.median)}</span>`
       :`<span class="gavg num" style="color:var(--faint);background:var(--surface-2)">—</span>`;
     return `<div class="grow"><span class="gsec">${esc(r.sec)}</span><div class="gbarwrap"><div class="gbar">${barSegments(r.dist)}</div><div class="gmeta"><span>${tot} graded</span><span>${esc(pairs.join('  '))}</span></div>${instr?`<div class="ginstr">👤 ${esc(instr)}</div>`:''}</div><div class="gright">${avg}${r.passRate!=null?`<span class="gpass">${r.passRate}% pass</span>`:''}</div></div>`;
   }
@@ -553,7 +553,7 @@
           ${c.credits!=null?`<dt>Credits</dt><dd class="num">${crFmt(c.credits)}${c.ltps?` &nbsp;·&nbsp; L–T–P–S ${ltpsFmt(c.ltps)}`:''}${c.half?' &nbsp;·&nbsp; half-sem':''}</dd>`:''}
           <dt>Instructors</dt><dd>${c.instructors.length?esc(c.instructors.join(', ')):'—'}</dd>
           <dt>Offerings</dt><dd>${c.offerings.length} section${c.offerings.length>1?'s':''} this semester</dd>
-          ${c.avgGP!=null?`<dt>Avg grade point</dt><dd class="num" style="color:${gpColor(c.avgGP)};font-weight:600">${c.avgGP.toFixed(2)} · ${c.gradedN} graded</dd>`:''}
+          ${c.medGP!=null?`<dt>Median grade point</dt><dd class="num" style="color:${gpColor(c.medGP)};font-weight:600">${crFmt(c.medGP)} · ${c.gradedN} graded</dd>`:''}
         </dl></div>
         <div class="sec"><h4>Sections · Autumn 2026</h4>${c.offerings.map((o,oi)=>offHTML(o,oi)).join('')}</div>
         <div class="sec"><h4>Grades &amp; instructors by year</h4>${ghtml}</div>

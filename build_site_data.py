@@ -10,6 +10,19 @@ GRADE_COLS = ["AA", "AB", "AC", "AD", "AP", "BB", "BC", "BD", "CC", "CD", "DD",
               "PP", "NP", "FF", "FR", "DX", "DR", "II", "W", "AU", "PD", "NC"]
 
 
+def median_gp(dist):
+    """Median grade point over the graded population (AA=10 … DD=4, F=0)."""
+    vals = []
+    for g, n in dist.items():
+        if g in GP:
+            vals.extend([GP[g]] * n)
+    if not vals:
+        return None
+    vals.sort()
+    k, m = len(vals), len(vals) // 2
+    return vals[m] if k % 2 else (vals[m - 1] + vals[m]) / 2
+
+
 def clean_instructors(raw):
     """'I - A B  I - C D' -> ['A B', 'C D'] (strip I-/A-/C- role prefixes)."""
     if not raw:
@@ -82,15 +95,13 @@ def main():
     grades = defaultdict(list)
     for r in csv.DictReader(open("iitb_grade_sectionwise.csv")):
         dist = {g: int(r[g]) for g in GRADE_COLS if r.get(g)}
-        pts = sum(GP[g] * n for g, n in dist.items() if g in GP)
-        gpn = sum(n for g, n in dist.items() if g in GP)
         passed = sum(n for g, n in dist.items()
                      if g in GP and g not in ("FF", "FR"))
         graded = sum(n for g, n in dist.items() if g in GP)
         grades[r["Course Code"].strip()].append({
             "year": r["Year"], "sec": r["Section"],
             "total": int(r["Total Graded"] or 0), "dist": dist,
-            "avg": round(pts / gpn, 2) if gpn else None,
+            "median": median_gp(dist),
             "passRate": round(100 * passed / graded) if graded else None,
         })
 
@@ -119,14 +130,12 @@ def main():
         c["histInstr"] = hist_instr.get(code, {})
         g = grades.get(code, [])
         c["grades"] = g
-        wpts = wn = 0
+        agg = {}
         for row in g:
-            if row["avg"] is not None:
-                n = sum(v for k, v in row["dist"].items() if k in GP)
-                wpts += row["avg"] * n
-                wn += n
-        c["avgGP"] = round(wpts / wn, 2) if wn else None
-        c["gradedN"] = wn
+            for k, v in row["dist"].items():
+                agg[k] = agg.get(k, 0) + v
+        c["medGP"] = median_gp(agg)                          # course-wide median
+        c["gradedN"] = sum(v for k, v in agg.items() if k in GP)
         c["nInstr"] = len(c["instructors"])
         out.append(c)
 
