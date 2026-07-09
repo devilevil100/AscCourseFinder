@@ -180,6 +180,20 @@
   .gyear{margin-bottom:24px}
   .gyear .gy{font-family:var(--mono);font-size:13px;color:var(--accent-ink);font-weight:650;margin-bottom:10px;letter-spacing:.02em}
   .gsub{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);font-weight:700;margin:12px 0 8px}
+  .prq{display:flex;gap:12px;align-items:baseline;margin-bottom:8px}
+  .prqlbl{flex:none;width:88px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700;padding-top:3px}
+  .prqx{display:flex;flex-wrap:wrap;gap:6px}
+  .pexpr{font-family:var(--mono);font-size:12px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-ink);border:1px solid color-mix(in srgb,var(--accent) 26%,transparent);border-radius:6px;padding:3px 8px;line-height:1.5}
+  .pexpr.eq{background:var(--surface-2);color:var(--muted);border-color:var(--border)}
+  .consent{font-size:12.5px;color:var(--muted)}
+  .prqnote{font-size:11.5px;color:var(--faint);line-height:1.45;margin-top:4px}
+  .descwrap{margin-bottom:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);overflow:hidden}
+  .descwrap>summary{cursor:pointer;list-style:none;padding:11px 14px;font-size:12.5px;font-weight:650;color:var(--ink);display:flex;justify-content:space-between;align-items:center;user-select:none}
+  .descwrap>summary::-webkit-details-marker{display:none}
+  .descwrap>summary:hover{background:var(--surface)}
+  .descwrap .chev{transition:transform .18s;color:var(--faint);font-size:12px}
+  .descwrap[open]>summary .chev{transform:rotate(180deg)}
+  .descbody{padding:2px 15px 15px;font-size:13px;line-height:1.62;color:var(--muted);max-height:340px;overflow-y:auto;border-top:1px solid var(--border)}
   .ginstr{font-size:11.5px;color:var(--muted);margin-top:3px}
   .grow{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:11px;margin-bottom:9px}
   .grow .gsec{font-family:var(--mono);font-size:12.5px;color:var(--muted);font-weight:650}
@@ -555,6 +569,13 @@
           <dt>Offerings</dt><dd>${c.offerings.length} section${c.offerings.length>1?'s':''} this semester</dd>
           ${c.medGP!=null?`<dt>Median grade point</dt><dd class="num" style="color:${gpColor(c.medGP)};font-weight:600">${crFmt(c.medGP)} · ${c.gradedN} graded</dd>`:''}
         </dl></div>
+        ${(c.prereq&&c.prereq.length)||(c.equiv&&c.equiv.length)||c.consent||(c.remarks&&c.remarks.length)?`<div class="sec"><h4>Prerequisites &amp; eligibility</h4>
+          ${c.prereq&&c.prereq.length?`<div class="prq"><span class="prqlbl">Prerequisite</span><div class="prqx">${c.prereq.map(x=>`<code class="pexpr">${esc(x)}</code>`).join('')}</div></div>`:''}
+          ${c.equiv&&c.equiv.length?`<div class="prq"><span class="prqlbl">Equivalent to</span><div class="prqx">${c.equiv.map(x=>`<code class="pexpr eq">${esc(x)}</code>`).join('')}</div></div>`:''}
+          ${c.consent?`<div class="prq"><span class="prqlbl">Consent</span><div class="prqx"><span class="consent">Instructor consent may be required</span></div></div>`:''}
+          ${c.remarks&&c.remarks.length?`<div class="prqnote">${c.remarks.map(esc).join('  ·  ')}</div>`:''}
+        </div>`:''}
+        ${c.desc?`<details class="descwrap"><summary>Course description<span class="chev">▾</span></summary><div class="descbody">${esc(c.desc).replace(/\n/g,'<br>')}</div></details>`:''}
         <div class="sec"><h4>Sections · Autumn 2026</h4>${c.offerings.map((o,oi)=>offHTML(o,oi)).join('')}</div>
         <div class="sec"><h4>Grades &amp; instructors by year</h4>${ghtml}</div>
       </div>`;

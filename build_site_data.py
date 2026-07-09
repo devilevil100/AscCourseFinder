@@ -117,6 +117,27 @@ def main():
     except FileNotFoundError:
         pass
 
+    # ---- prerequisites / equivalents (from Prerequisite.csv) ----
+    prereq_map = {}
+    try:
+        for r in csv.DictReader(open("Prerequisite.csv", encoding="utf-8", errors="replace")):
+            pcode = r["CourseCode"].strip()
+            typ = (r["Type"] or "").strip()
+            expr = " ".join((r["Courses"] or "").split())
+            consent = (r["InstructorConsent"] or "").strip()
+            remark = " ".join((r["Remark"] or "").split())
+            e = prereq_map.setdefault(pcode, {"prereq": [], "equiv": [], "consent": False, "remarks": []})
+            if typ.startswith("prereq") and expr and expr not in e["prereq"]:
+                e["prereq"].append(expr)
+            if typ == "equivalent" and expr and expr not in e["equiv"]:
+                e["equiv"].append(expr)
+            if consent in ("Required", "Conditional"):
+                e["consent"] = True
+            if remark and remark not in e["remarks"]:
+                e["remarks"].append(remark)
+    except FileNotFoundError:
+        pass
+
     # ---- merge + course-level summary ----
     out = []
     for code, c in courses.items():
@@ -127,6 +148,12 @@ def main():
         c["credits"] = cr["credits"] if cr else None
         c["ltps"] = [cr["L"], cr["T"], cr["P"], cr["S"]] if cr else None
         c["half"] = bool(cr["half"]) if cr else False
+        c["desc"] = (cr.get("desc") or "") if cr else ""
+        pr = prereq_map.get(code)
+        c["prereq"] = pr["prereq"] if pr else []
+        c["equiv"] = pr["equiv"] if pr else []
+        c["consent"] = bool(pr and pr["consent"])
+        c["remarks"] = pr["remarks"] if pr else []
         c["histInstr"] = hist_instr.get(code, {})
         g = grades.get(code, [])
         c["grades"] = g
