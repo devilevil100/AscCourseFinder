@@ -93,6 +93,11 @@
   .slotchip:hover{border-color:var(--accent)}
   .slotchip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
   .slotclear{appearance:none;background:none;border:none;color:var(--accent-ink);font-size:11.5px;cursor:pointer;padding:0 11px 10px;text-align:left}
+  .picklist{max-height:216px;overflow-y:auto;padding:2px 8px 6px;display:flex;flex-direction:column;gap:1px}
+  .pickrow{display:flex;align-items:center;gap:9px;padding:5px 5px;font-size:13px;color:var(--muted);cursor:pointer;border-radius:5px}
+  .pickrow:hover{background:var(--surface);color:var(--ink)}
+  .pickrow input{width:15px;height:15px;accent-color:var(--accent);flex:none}
+  .pickrow span{line-height:1.25}
 
   .reset{appearance:none;background:none;border:1px dashed var(--border-strong);color:var(--muted);
     padding:8px;border-radius:var(--r-sm);cursor:pointer;font-size:13px}
@@ -292,9 +297,12 @@
         <label for="q">Search</label>
         <input type="search" id="q" placeholder="Code, title, or instructor…" autocomplete="off">
       </div>
-      <div class="field"><label for="dept">Department</label><select id="dept"><option value="">All departments</option></select></div>
+      <details class="slotwrap" id="deptWrap">
+        <summary>Departments <span class="cnt" id="deptCnt"></span></summary>
+        <div class="picklist" id="deptList"></div>
+        <button class="slotclear" id="deptClear" hidden>Clear departments</button>
+      </details>
       <div class="field"><label for="type">Course type</label><select id="type"><option value="">All types</option></select></div>
-      <div class="field"><label for="level">Level</label><select id="level"><option value="">All levels</option></select></div>
       <div class="field"><label for="sort">Sort by</label><select id="sort">
         <option value="code">Course code</option>
         <option value="lenient">Most lenient (avg grade)</option>
@@ -421,9 +429,9 @@
   }
 
   // ---- filters ----
-  const deptSel=$('dept');DATA.depts.forEach(d=>{const o=document.createElement('option');o.value=d.prefix;o.textContent=d.name;deptSel.appendChild(o);});
+  const deptList=$('deptList');
+  deptList.innerHTML=DATA.depts.map(d=>`<label class="pickrow"><input type="checkbox" data-dep="${esc(d.prefix)}"><span>${esc(d.name)}</span></label>`).join('');
   const typeSel=$('type');DATA.types.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;typeSel.appendChild(o);});
-  const levelSel=$('level');[...new Set(courses.map(c=>c.level).filter(Boolean))].sort((a,b)=>a-b).forEach(l=>{const o=document.createElement('option');o.value=l;o.textContent=l+'-level';levelSel.appendChild(o);});
   $('statCourses').textContent=courses.length;
   $('statGraded').textContent=courses.filter(c=>c.grades.length).length;
   $('ramp').innerHTML=['AA','AB','BB','BC','CC','CD','DD','FF','FR'].map(g=>`<i style="background:${GC[g]}"></i>`).join('');
@@ -434,12 +442,11 @@
   const slotGrid=$('slotGrid');
   slotGrid.innerHTML=GROUPS.map(s=>`<button class="slotchip" type="button" data-slot="${s}">${s}</button>`).join('');
 
-  const state={q:'',dept:'',type:'',level:'',sort:'code',onlyG:false,slots:new Set(),showClash:false};
+  const state={q:'',depts:new Set(),type:'',sort:'code',onlyG:false,slots:new Set(),showClash:false};
 
   function passes(c,filled){
-    if(state.dept&&c.deptPrefix!==state.dept)return false;
+    if(state.depts.size&&!state.depts.has(c.deptPrefix))return false;
     if(state.type&&c.type!==state.type)return false;
-    if(state.level&&c.level!=state.level)return false;
     if(state.onlyG&&!c.grades.length)return false;
     if(state.slots.size&&!c.offerings.some(o=>offGroups(o).some(g=>state.slots.has(g))))return false;
     if(state.q){const q=state.q.toLowerCase();if(!(c.code+' '+c.name+' '+c.instructors.join(' ')).toLowerCase().includes(q))return false;}
@@ -634,9 +641,11 @@
   // ---- controls ----
   let t;
   $('q').addEventListener('input',e=>{clearTimeout(t);t=setTimeout(()=>{state.q=e.target.value.trim();render();},120);});
-  deptSel.onchange=e=>{state.dept=e.target.value;render();};
+  deptList.addEventListener('change',e=>{const cb=e.target.closest('input[data-dep]');if(!cb)return;
+    if(cb.checked)state.depts.add(cb.dataset.dep);else state.depts.delete(cb.dataset.dep);
+    $('deptCnt').textContent=state.depts.size||'';$('deptClear').hidden=state.depts.size===0;render();});
+  $('deptClear').onclick=()=>{state.depts.clear();deptList.querySelectorAll('input:checked').forEach(x=>x.checked=false);$('deptCnt').textContent='';$('deptClear').hidden=true;render();};
   typeSel.onchange=e=>{state.type=e.target.value;render();};
-  levelSel.onchange=e=>{state.level=e.target.value;render();};
   $('sort').onchange=e=>{state.sort=e.target.value;render();};
   $('onlyG').onchange=e=>{state.onlyG=e.target.checked;render();};
   $('showClash').onchange=e=>{state.showClash=e.target.checked;render();};
@@ -650,8 +659,9 @@
   });
   $('slotClear').onclick=()=>{state.slots.clear();slotGrid.querySelectorAll('.slotchip.on').forEach(x=>x.classList.remove('on'));$('slotCnt').textContent='';$('slotClear').hidden=true;render();};
   $('reset').onclick=()=>{
-    Object.assign(state,{q:'',dept:'',type:'',level:'',sort:'code',onlyG:false,showClash:false});state.slots.clear();
-    $('q').value='';deptSel.value='';typeSel.value='';levelSel.value='';$('sort').value='code';$('onlyG').checked=false;$('showClash').checked=false;
+    Object.assign(state,{q:'',type:'',sort:'code',onlyG:false,showClash:false});state.depts.clear();state.slots.clear();
+    $('q').value='';typeSel.value='';$('sort').value='code';$('onlyG').checked=false;$('showClash').checked=false;
+    deptList.querySelectorAll('input:checked').forEach(x=>x.checked=false);$('deptCnt').textContent='';$('deptClear').hidden=true;
     slotGrid.querySelectorAll('.slotchip.on').forEach(x=>x.classList.remove('on'));$('slotCnt').textContent='';$('slotClear').hidden=true;
     render();
   };
