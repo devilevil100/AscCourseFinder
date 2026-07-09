@@ -184,6 +184,18 @@
   .grow .gavg{font-family:var(--mono);font-weight:750;font-size:14px;padding:1px 8px;border-radius:12px}
   .grow .gpass{font-size:10px;color:var(--faint);font-family:var(--mono)}
   .nohist{font-size:13px;color:var(--muted);padding:6px 0}
+  .chart{display:flex;align-items:flex-end;gap:5px;height:150px;padding:14px 2px 0;border-bottom:1px solid var(--border);margin-bottom:12px;overflow-x:auto}
+  .gcol{flex:1 0 26px;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+  .gpct{font-family:var(--mono);font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .gbarv{width:72%;max-width:28px;border-radius:3px 3px 0 0;min-height:3px}
+  .glab{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .btable{width:100%;border-collapse:collapse;font-size:13px}
+  .btable th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:700;padding:5px 7px;border-bottom:1px solid var(--border)}
+  .btable td{padding:5px 7px;border-bottom:1px solid var(--border)}
+  .btable td.num,.btable th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+  .btable tbody tr:hover{background:var(--surface-2)}
+  .btable tfoot td{padding:6px 7px;font-weight:650;font-family:var(--mono);border-top:1px solid var(--border-strong)}
+  .gsw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:8px;vertical-align:-1px}
 
   /* ---- planner ---- */
   .ttmodal{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column}
@@ -362,8 +374,10 @@
   const GRADE_ORDER=['AA','AB','AC','AD','AP','BB','BC','BD','CC','CD','DD','FF','FR','DX','DR'];
   const NEUTRAL_G=['PP','NP','II','AU','W','PD','NC'];
   const gname={AA:'AA',AB:'AB',BB:'BB',BC:'BC',CC:'CC',CD:'CD',DD:'DD',FF:'FF',FR:'FR',PP:'Pass',NP:'No-Pass',II:'Incomplete',AU:'Audit',AP:'AP'};
-  const SLOT_ALL=['1A','1B','1C','2A','2B','2C','3A','3B','3C','4A','4B','5A','5B','6A','6B','7A','7B',
-    '8A','8B','9A','9B','10A','10B','11A','11B','12A','12B','12C','X1','X2','X3','XA','XB','XE','L1','L2','L3','L4','L5','L6','LX'];
+  // slots are groups: 1A/1B/1C all belong to slot "1"; X1/XA/L2/etc are their own groups
+  const GROUPS=['1','2','3','4','5','6','7','8','9','10','11','12','XE','L1','L2','L3','L4','L5','L6','LX','X1','X2','X3','XA','XB'];
+  const grp=cell=>{const m=/^(\d{1,2})[ABC]$/.exec(cell);return m?m[1]:cell;};
+  const offGroups=o=>[...new Set(o.cells.map(grp))];
 
   const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   function gcolor(g){return GC[g]||NEUTRAL;}
@@ -384,7 +398,7 @@
   const byCode=new Map(courses.map(c=>[c.code,c]));
   const selected=new Map();            // key -> {code,oi,c}
   const blocked=new Set();             // manually filled slot-cells
-  const SEL_K='asc_tt_sem1_v2', BLK_K='asc_tt_block_v2';
+  const SEL_K='asc_tt_sem1_v2', BLK_K='asc_tt_block_v3';
   const keyOf=(code,oi)=>code+'§'+oi;
   const firstSlotOff=c=>c.offerings.findIndex(o=>o.cells.length);
   const courseSel=c=>{for(const s of selected.values())if(s.code===c.code)return true;return false;};
@@ -395,13 +409,13 @@
   }
   function toggleCourse(code,oi){const k=keyOf(code,oi);if(selected.has(k))selected.delete(k);else selected.set(k,{code,oi,c:byCode.get(code)});update();}
   function toggleBlock(cell){if(blocked.has(cell))blocked.delete(cell);else blocked.add(cell);update();}
-  // union of everything occupying the timetable
-  function filledSet(){const f=new Set(blocked);selected.forEach(s=>{for(const cell of s.c.offerings[s.oi].cells)f.add(cell);});return f;}
-  // does course c have at least one section that avoids the filled slots?
+  // union of slot-groups occupying the timetable
+  function filledSet(){const f=new Set(blocked);selected.forEach(s=>{for(const g of offGroups(s.c.offerings[s.oi]))f.add(g);});return f;}
+  // does course c have at least one section that avoids the filled slot-groups?
   function courseFree(c,filled){
-    const withSlot=c.offerings.filter(o=>o.cells.length);
-    if(!withSlot.length)return true;                 // no fixed slot → never clashes
-    return withSlot.some(o=>!o.cells.some(cell=>filled.has(cell)));
+    const ws=c.offerings.filter(o=>o.cells.length);
+    if(!ws.length)return true;                       // no fixed slot → never clashes
+    return ws.some(o=>!offGroups(o).some(g=>filled.has(g)));
   }
 
   // ---- filters ----
@@ -416,7 +430,7 @@
 
   // slot filter chips
   const slotGrid=$('slotGrid');
-  slotGrid.innerHTML=SLOT_ALL.map(s=>`<button class="slotchip" type="button" data-slot="${s}">${s}</button>`).join('');
+  slotGrid.innerHTML=GROUPS.map(s=>`<button class="slotchip" type="button" data-slot="${s}">${s}</button>`).join('');
 
   const state={q:'',dept:'',type:'',level:'',sort:'code',onlyG:false,slots:new Set(),showClash:false};
 
@@ -425,7 +439,7 @@
     if(state.type&&c.type!==state.type)return false;
     if(state.level&&c.level!=state.level)return false;
     if(state.onlyG&&!c.grades.length)return false;
-    if(state.slots.size&&!c.offerings.some(o=>o.cells.some(cell=>state.slots.has(cell))))return false;
+    if(state.slots.size&&!c.offerings.some(o=>offGroups(o).some(g=>state.slots.has(g))))return false;
     if(state.q){const q=state.q.toLowerCase();if(!(c.code+' '+c.name+' '+c.instructors.join(' ')).toLowerCase().includes(q))return false;}
     if(!state.showClash && !courseSel(c) && !courseFree(c,filled))return false;   // hide timetable clashes
     return true;
@@ -487,7 +501,7 @@
     const btn=noslot?`<button class="oadd" disabled>No fixed slot</button>`
       :`<button class="oadd ${has?'on':''}" data-off="${oi}">${has?'✓ In timetable':'＋ Add to timetable'}</button>`;
     return `<div class="off${noslot?' noslot':''}">
-      <div class="oh"><span class="otype">${esc(o.row)}</span>${o.div?`<span class="odiv">${esc(o.div)}</span>`:''}${o.cells.length?`<span class="odiv">${o.cells.join(' ')}</span>`:''}${o.biometric?`<span class="bio">biometric</span>`:''}<span class="olim">cap ${esc(o.limit||'0')}</span></div>
+      <div class="oh"><span class="otype">${esc(o.row)}</span>${o.div?`<span class="odiv">${esc(o.div)}</span>`:''}${o.cells.length?`<span class="odiv">slot ${offGroups(o).join(' ')}</span>`:''}${o.biometric?`<span class="bio">biometric</span>`:''}<span class="olim">cap ${esc(o.limit||'0')}</span></div>
       <div class="oinstr">${instr}</div>${o.slot?`<div class="oslot">${esc(o.slot)}</div>`:''}${btn}</div>`;
   }
   function gradeRowHTML(r){
@@ -496,6 +510,25 @@
     const avg=r.avg!=null?`<span class="gavg num" style="color:${gpColor(r.avg)};background:color-mix(in srgb,${gpColor(r.avg)} 16%,transparent)">${r.avg.toFixed(2)}</span>`
       :`<span class="gavg num" style="color:var(--faint);background:var(--surface-2)">—</span>`;
     return `<div class="grow"><span class="gsec">${esc(r.sec)}</span><div class="gbarwrap"><div class="gbar">${barSegments(r.dist)}</div><div class="gmeta"><span>${tot} graded</span><span>${esc(pairs.join('  '))}</span></div></div><div class="gright">${avg}${r.passRate!=null?`<span class="gpass">${r.passRate}% pass</span>`:''}</div></div>`;
+  }
+  function breakdownHTML(c){
+    const d=aggDist(c); let tot=0; for(const k in d) tot+=d[k];
+    if(!tot) return '';
+    const ord=[...GRADE_ORDER,...NEUTRAL_G].filter(g=>d[g]);
+    const maxFrac=Math.max(...ord.map(g=>d[g]/tot));
+    const col=g=>GRADE_ORDER.includes(g)?gcolor(g):NEUTRAL;
+    const chart=ord.map(g=>{
+      const frac=d[g]/tot;
+      return `<div class="gcol" title="${gname[g]||g}: ${d[g]} (${(frac*100).toFixed(1)}%)">
+        <span class="gpct">${(frac*100).toFixed(0)}%</span>
+        <div class="gbarv" style="height:${Math.max(4,frac/maxFrac*100).toFixed(1)}%;background:${col(g)}"></div>
+        <span class="glab">${g}</span></div>`;
+    }).join('');
+    const rows=ord.map(g=>`<tr><td><span class="gsw" style="background:${col(g)}"></span>${gname[g]||g}</td><td class="num">${d[g]}</td><td class="num">${(d[g]/tot*100).toFixed(1)}%</td></tr>`).join('');
+    return `<div class="sec"><h4>Grade breakdown · ${tot} students${c.avgGP!=null?` · avg ${c.avgGP.toFixed(2)}`:''}</h4>
+      <div class="chart">${chart}</div>
+      <table class="btable"><thead><tr><th>Grade</th><th class="num">Count</th><th class="num">Share</th></tr></thead>
+      <tbody>${rows}</tbody><tfoot><tr><td>Total</td><td class="num">${tot}</td><td class="num">100%</td></tr></tfoot></table></div>`;
   }
   function openDrawer(c){
     drawerCourse=c;
@@ -514,6 +547,7 @@
           ${c.avgGP!=null?`<dt>Avg grade point</dt><dd class="num" style="color:${gpColor(c.avgGP)};font-weight:600">${c.avgGP.toFixed(2)} · ${c.gradedN} graded</dd>`:''}
         </dl></div>
         <div class="sec"><h4>Sections · Autumn 2026</h4>${c.offerings.map((o,oi)=>offHTML(o,oi)).join('')}</div>
+        ${c.grades.length?breakdownHTML(c):''}
         <div class="sec"><h4>Grade history by section</h4>${ghtml}</div>
       </div>`;
     $('dclose').onclick=closeDrawer;
@@ -532,11 +566,11 @@
 
   // ---- planner grid ----
   const ROWS=[
-    ['Mon',['XE','1A','2A','3A'],['8A','9A','12A']],
-    ['Tue',['4A','1B','2B','3B'],['10A','11A','12B']],
-    ['Wed',['5A','6A','','7A'],[['X1','X2','X3'],'','XA']],
-    ['Thu',['4B','1C','2C','3C'],['8B','9B','12C']],
-    ['Fri',['5B','6B','','7B'],['10B','11B','XB']],
+    ['Mon',['XE','1','2','3'],['8','9','12']],
+    ['Tue',['4','1','2','3'],['10','11','12']],
+    ['Wed',['5','6','','7'],[['X1','X2','X3'],'','XA']],
+    ['Thu',['4','1','2','3'],['8','9','12']],
+    ['Fri',['5','6','','7'],['10','11','XB']],
   ];
   function sbCell(code){
     if(code==null||code==='')return '<div class="sb empty"></div>';
@@ -551,7 +585,7 @@
     // click-to-fill
     document.querySelectorAll('#ttGrid [data-slot],#labStrip [data-slot]').forEach(el=>el.addEventListener('click',()=>toggleBlock(el.dataset.slot)));
   }
-  function occupancy(){const occ={};selected.forEach(s=>{for(const cell of s.c.offerings[s.oi].cells)(occ[cell]=occ[cell]||[]).push(s);});return occ;}
+  function occupancy(){const occ={};selected.forEach(s=>{for(const g of offGroups(s.c.offerings[s.oi]))(occ[g]=occ[g]||[]).push(s);});return occ;}
   function paintGrid(occ){
     document.querySelectorAll('#ttModal [data-slot]').forEach(el=>{
       const sl=el.dataset.slot,owners=occ[sl]||[],isB=blocked.has(sl),total=owners.length+(isB?1:0);
@@ -569,7 +603,7 @@
   function refreshPlanner(){
     const n=selected.size;const badge=$('ttBadge');badge.textContent=n;badge.hidden=n===0;
     const occ=occupancy();
-    const clashCells=SLOT_ALL.filter(sl=>(occ[sl]||[]).length+(blocked.has(sl)?1:0)>1).sort();
+    const clashCells=GROUPS.filter(sl=>(occ[sl]||[]).length+(blocked.has(sl)?1:0)>1);
     const clashKeys=new Set();clashCells.forEach(sl=>(occ[sl]||[]).forEach(s=>clashKeys.add(keyOf(s.code,s.oi))));
     const cb=$('clashBar');
     if(!n&&!blocked.size){cb.className='clashbar ok';cb.textContent='Nothing here yet — add courses from the list, or click slots to mark them busy.';}
@@ -579,7 +613,7 @@
     if(!n)sl.innerHTML='<div class="empty2">No courses added. Your picks persist on this device.</div>';
     else sl.innerHTML=[...selected.values()].sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})).map(s=>{
       const o=s.c.offerings[s.oi],cl=clashKeys.has(keyOf(s.code,s.oi));
-      return `<div class="selrow${cl?' clash':''}"><div class="si"><div class="sco">${esc(s.code)} <span style="color:var(--faint);font-weight:400">${esc(o.div||o.row)}</span></div><div class="snm">${esc(s.c.name)}</div><div class="scells">${o.cells.join(' ')||'no slot'}</div></div><button class="srm" data-rm="${keyOf(esc(s.code),s.oi)}" title="Remove">✕</button></div>`;
+      return `<div class="selrow${cl?' clash':''}"><div class="si"><div class="sco">${esc(s.code)} <span style="color:var(--faint);font-weight:400">${esc(o.div||o.row)}</span></div><div class="snm">${esc(s.c.name)}</div><div class="scells">slot ${offGroups(o).join(' ')||'—'}</div></div><button class="srm" data-rm="${keyOf(esc(s.code),s.oi)}" title="Remove">✕</button></div>`;
     }).join('');
     $('busyClear').hidden=blocked.size===0;
     paintGrid(occ);
