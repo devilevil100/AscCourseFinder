@@ -138,6 +138,27 @@ def main():
     except FileNotFoundError:
         pass
 
+    # ---- minor baskets (optional) ----
+    minors = []
+    try:
+        for m in json.load(open("minors.json")):
+            dep = m["department"]
+            codes, seen = [], set()
+            for entry in m.get("basket", []):
+                code = entry.split(":", 1)[0].replace(" ", "").upper().strip()
+                if code and code not in seen:
+                    seen.add(code)
+                    codes.append(code)
+            minors.append({
+                "slug": dep["slug"],
+                "name": dep["name"],
+                "label": m.get("label") or dep["name"],
+                "codes": codes,
+            })
+        minors.sort(key=lambda x: x["label"].lower())
+    except FileNotFoundError:
+        pass
+
     # ---- merge + course-level summary ----
     out = []
     for code, c in courses.items():
@@ -169,18 +190,37 @@ def main():
     out.sort(key=lambda x: (x["deptPrefix"], x["code"]))
     depts = sorted({(c["deptPrefix"], c["dept"]) for c in out},
                    key=lambda x: x[1])
+    # keep only minor codes that are actually offered this semester
+    offered = {c["code"].replace(" ", "").upper() for c in out}
+    for m in minors:
+        m["codes"] = [c for c in m["codes"] if c in offered]
+    minors = [m for m in minors if m["codes"]]
+
     payload = {
         "courses": out,
         "depts": [{"prefix": p, "name": n} for p, n in depts],
         "types": sorted({c["type"] for c in out if c["type"]}),
+        "minors": minors,
         "gradeCols": [g for g in GRADE_COLS if g in GP] +
                      ["PP", "NP", "II", "AU", "AP"],
     }
     with open("site_data.json", "w") as f:
         json.dump(payload, f, separators=(",", ":"))
+
+    # ---- inject payload into the template -> single-file index.html ----
+    head = ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            '<title>ASC Course Explorer · IIT Bombay</title>'
+            '<style>*{margin:0}body{background:#ECEBF1}</style></head><body>\n')
+    tmpl = open("course_template.html").read()
+    data = json.dumps(payload, separators=(",", ":"))
+    with open("index.html", "w") as f:
+        f.write(head + tmpl.replace("__DATA__", data) + "\n</body></html>\n")
+
     print(f"{len(out)} courses, "
-          f"{sum(len(c['grades']) for c in out)} grade rows -> site_data.json")
-    print(f"with grade history: {sum(1 for c in out if c['grades'])}")
+          f"{sum(len(c['grades']) for c in out)} grade rows -> site_data.json + index.html")
+    print(f"with grade history: {sum(1 for c in out if c['grades'])}; "
+          f"{len(minors)} minor baskets")
 
 
 if __name__ == "__main__":

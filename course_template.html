@@ -73,6 +73,8 @@
   .field input[type=search],.field select{width:100%;padding:9px 11px;border:1px solid var(--border-strong);
     border-radius:var(--r-sm);background:var(--surface-2);color:var(--ink);font-family:var(--sans);font-size:14px}
   .field select{cursor:pointer}
+  .minornote{font-size:11.5px;color:var(--muted);line-height:1.42;padding:3px 1px 0}
+  .minornote b{color:var(--accent-ink);font-family:var(--mono)}
   .field input:focus-visible,.field select:focus-visible,.chip:focus-visible,.slotchip:focus-visible{
     outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
   .check{display:flex;align-items:flex-start;gap:9px;font-size:13.5px;cursor:pointer;color:var(--muted);line-height:1.35}
@@ -317,6 +319,9 @@
         <button class="slotclear" id="deptClear" hidden>Clear departments</button>
       </details>
       <div class="field"><label for="type">Course type</label><select id="type"><option value="">All types</option></select></div>
+      <div class="field"><label for="minor">Minor basket</label>
+        <select id="minor"><option value="">All courses — no minor</option></select>
+        <div class="minornote" id="minorNote" hidden></div></div>
       <div class="field"><label for="sort">Sort by</label><select id="sort">
         <option value="code">Course code</option>
         <option value="lenient">Most lenient (median grade)</option>
@@ -448,6 +453,13 @@
   const deptList=$('deptList');
   deptList.innerHTML=DATA.depts.map(d=>`<label class="pickrow"><input type="checkbox" data-dep="${esc(d.prefix)}"><span>${esc(d.name)}</span></label>`).join('');
   const typeSel=$('type');DATA.types.forEach(t=>{const o=document.createElement('option');o.value=t;o.textContent=t;typeSel.appendChild(o);});
+  const ncode=c=>c.code.replace(/\s+/g,'').toUpperCase();
+  const minorSel=$('minor');
+  const minorMap=new Map((DATA.minors||[]).map(m=>[m.slug,{name:m.name,label:m.label,set:new Set(m.codes),n:m.codes.length}]));
+  (DATA.minors||[]).forEach(m=>{const o=document.createElement('option');o.value=m.slug;o.textContent=`${m.label} (${m.codes.length})`;o.title=m.name+' minor';minorSel.appendChild(o);});
+  function updateMinorNote(){const el=$('minorNote'),m=minorMap.get(state.minor);
+    if(!m){el.hidden=true;el.innerHTML='';return;}
+    el.hidden=false;el.innerHTML=`<b>${m.n}</b> ${esc(m.name)} minor course${m.n>1?'s':''} offered this semester.`;}
   $('statCourses').textContent=courses.length;
   $('statGraded').textContent=courses.filter(c=>c.grades.length).length;
   $('ramp').innerHTML=['AA','AB','BB','BC','CC','CD','DD','FF','FR'].map(g=>`<i style="background:${GC[g]}"></i>`).join('');
@@ -458,11 +470,12 @@
   const slotGrid=$('slotGrid');
   slotGrid.innerHTML=GROUPS.map(s=>`<button class="slotchip" type="button" data-slot="${s}">${s}</button>`).join('');
 
-  const state={q:'',depts:new Set(),type:'',sort:'code',onlyG:false,slots:new Set(),showClash:false};
+  const state={q:'',depts:new Set(),type:'',minor:'',sort:'code',onlyG:false,slots:new Set(),showClash:false};
 
   function passes(c,filled){
     if(state.depts.size&&!state.depts.has(c.deptPrefix))return false;
     if(state.type&&c.type!==state.type)return false;
+    if(state.minor){const m=minorMap.get(state.minor);if(!m||!m.set.has(ncode(c)))return false;}
     if(state.onlyG&&!c.grades.length)return false;
     if(state.slots.size&&!c.offerings.some(o=>offGroups(o).some(g=>state.slots.has(g))))return false;
     if(state.q){const q=state.q.toLowerCase();if(!(c.code+' '+c.name+' '+c.instructors.join(' ')).toLowerCase().includes(q))return false;}
@@ -666,6 +679,7 @@
     $('deptCnt').textContent=state.depts.size||'';$('deptClear').hidden=state.depts.size===0;render();});
   $('deptClear').onclick=()=>{state.depts.clear();deptList.querySelectorAll('input:checked').forEach(x=>x.checked=false);$('deptCnt').textContent='';$('deptClear').hidden=true;render();};
   typeSel.onchange=e=>{state.type=e.target.value;render();};
+  minorSel.onchange=e=>{state.minor=e.target.value;updateMinorNote();render();};
   $('sort').onchange=e=>{state.sort=e.target.value;render();};
   $('onlyG').onchange=e=>{state.onlyG=e.target.checked;render();};
   $('showClash').onchange=e=>{state.showClash=e.target.checked;render();};
@@ -679,8 +693,8 @@
   });
   $('slotClear').onclick=()=>{state.slots.clear();slotGrid.querySelectorAll('.slotchip.on').forEach(x=>x.classList.remove('on'));$('slotCnt').textContent='';$('slotClear').hidden=true;render();};
   $('reset').onclick=()=>{
-    Object.assign(state,{q:'',type:'',sort:'code',onlyG:false,showClash:false});state.depts.clear();state.slots.clear();
-    $('q').value='';typeSel.value='';$('sort').value='code';$('onlyG').checked=false;$('showClash').checked=false;
+    Object.assign(state,{q:'',type:'',minor:'',sort:'code',onlyG:false,showClash:false});state.depts.clear();state.slots.clear();
+    $('q').value='';typeSel.value='';minorSel.value='';updateMinorNote();$('sort').value='code';$('onlyG').checked=false;$('showClash').checked=false;
     deptList.querySelectorAll('input:checked').forEach(x=>x.checked=false);$('deptCnt').textContent='';$('deptClear').hidden=true;
     slotGrid.querySelectorAll('.slotchip.on').forEach(x=>x.classList.remove('on'));$('slotCnt').textContent='';$('slotClear').hidden=true;
     render();
