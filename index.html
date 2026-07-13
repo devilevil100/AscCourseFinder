@@ -198,6 +198,7 @@
   .descwrap .chev{transition:transform .18s;color:var(--faint);font-size:12px}
   .descwrap[open]>summary .chev{transform:rotate(180deg)}
   .descbody{padding:2px 15px 15px;font-size:13px;line-height:1.62;color:var(--muted);max-height:340px;overflow-y:auto;border-top:1px solid var(--border)}
+  .nodesc{margin-bottom:20px;padding:11px 14px;border:1px dashed var(--border-strong);border-radius:10px;background:var(--surface-2);font-size:12.5px;color:var(--faint);line-height:1.5}
   .ginstr{font-size:11.5px;color:var(--muted);margin-top:3px}
   .grow{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:11px;margin-bottom:9px}
   .grow .gsec{font-family:var(--mono);font-size:12.5px;color:var(--muted);font-weight:650}
@@ -590,7 +591,7 @@
           ${c.consent?`<div class="prq"><span class="prqlbl">Consent</span><div class="prqx"><span class="consent">Instructor consent may be required</span></div></div>`:''}
           ${c.remarks&&c.remarks.length?`<div class="prqnote">${c.remarks.map(esc).join('  ·  ')}</div>`:''}
         </div>`:''}
-        ${c.desc?`<details class="descwrap"><summary>Course description<span class="chev">▾</span></summary><div class="descbody">${esc(c.desc).replace(/\n/g,'<br>')}</div></details>`:''}
+        ${c.desc?`<details class="descwrap" open><summary>Course description<span class="chev">▾</span></summary><div class="descbody">${esc(c.desc).replace(/\n/g,'<br>')}</div></details>`:`<div class="nodesc">No course description is published for this course on ASC.</div>`}
         <div class="sec"><h4>Sections · Autumn 2026</h4>${c.offerings.map((o,oi)=>offHTML(o,oi)).join('')}</div>
         <div class="sec"><h4>Grades &amp; instructors by year</h4>${ghtml}</div>
       </div>`;
